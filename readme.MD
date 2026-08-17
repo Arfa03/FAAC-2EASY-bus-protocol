@@ -591,8 +591,6 @@ captures/           sigrok/PulseView captures used for the reconstruction
 
 Captures are 2 MSa/s, single channel, taken through a passive divider.
 
-> sigrok splits long captures into `logic-1-1 … logic-1-N`. **All** chunks must be
-> concatenated before analysis; reading only the first one makes a capture look empty.
 
 ---
 
@@ -1063,8 +1061,6 @@ captures/           catture sigrok/PulseView usate per la ricostruzione
 
 Le catture sono a 2 MSa/s, canale singolo, tramite partitore passivo.
 
-> sigrok spezza le catture lunghe in `logic-1-1 … logic-1-N`. Vanno concatenati **tutti**
-> prima dell'analisi: leggendo solo il primo la cattura sembra vuota.
 
 ---
 
