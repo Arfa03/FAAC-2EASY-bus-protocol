@@ -619,7 +619,8 @@ Contributions welcome, particularly measurements with devices not available here
 
 # License
 
-Documentation and code released for educational and research use.
+Firmware and source code are released under the MIT License.
+Documentation is provided for educational and research purposes.
 FAAC, BUS 2easy, XP20B, XK10B, XBR2 and E721 are trademarks of FAAC S.p.A.
 This project is not affiliated with or endorsed by FAAC.
 
@@ -1090,6 +1091,7 @@ Contributi benvenuti, in particolare misure con dispositivi non disponibili qui.
 
 ## Licenza
 
-Documentazione e codice rilasciati per uso didattico e di ricerca.
+Il firmware e il codice sorgente sono rilasciati sotto licenza MIT.
+La documentazione è fornita per finalità didattiche e di ricerca.
 FAAC, BUS 2easy, XP20B, XK10B, XBR2 e E721 sono marchi di FAAC S.p.A.
 Questo progetto non è affiliato né approvato da FAAC.
