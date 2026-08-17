@@ -131,7 +131,7 @@ static void help(void)
     say("s=stato  f=cambi  a=tutti  e=censimento  ?=aiuto\r\n");
     say("--- master (PILOTA IL BUS) ---\r\n");
     say("M=avvia  X=ferma  m=stato  E=censimento  B=blink test\r\n");
-    say("+/-=finestra campionamento  >/<=margine soglia\r\n");
+    say("+/- = sposta la finestra di campionamento (us)\r\n");
 }
 
 static void print_master(void)
@@ -205,9 +205,9 @@ static void handle_cmd(char c)
               say("censimento master in corso, 1 secondo...\r\n"); break;
     case 'B': say("blink test 10 s su PA9: guarda il bus\r\n");
               b2em_blink_test(10); say("fine blink\r\n"); break;
-    case '+': { static uint16_t w = 125; w += 5; b2em_set_sample_us(w);
+    case '+': { static uint16_t w = 30; w += 5; b2em_set_sample_us(w);
                 sayf("finestra: %u us\r\n", (unsigned)w); } break;
-    case '-': { static uint16_t w = 125; w -= 5; b2em_set_sample_us(w);
+    case '-': { static uint16_t w = 30; w -= 5; b2em_set_sample_us(w);
                 sayf("finestra: %u us\r\n", (unsigned)w); } break;
     case '>': { static uint16_t g = 40; g += 10; b2em_set_margin(g);
                 sayf("margine: %u conteggi\r\n", (unsigned)g); } break;

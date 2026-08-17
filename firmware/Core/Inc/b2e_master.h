@@ -26,7 +26,7 @@
 /* ---- geometria del frame ---------------------------------------------- */
 
 #define B2EM_HALF_US          150u   /* mezzo slot                          */
-#define B2EM_PULSE_US          99u   /* impulso basso                       */
+#define B2EM_PULSE_US          112u   /* impulso basso                       */
 #define B2EM_SLOTS             64u   /* slot per frame                      */
 #define B2EM_GAP_US          1050u   /* gap interframe, linea alta          */
 
@@ -34,7 +34,7 @@
  * slot pari. Il master originale rigenera l'impulso a 150-157 us dall'inizio
  * dello slot, quindi lo slave deve assorbire prima. 125 us e' il punto di
  * partenza; tarabile a runtime. */
-#define B2EM_SAMPLE_US_DEFAULT  125u
+#define B2EM_SAMPLE_US_DEFAULT   30u
 
 /* ---- stato ------------------------------------------------------------- */
 

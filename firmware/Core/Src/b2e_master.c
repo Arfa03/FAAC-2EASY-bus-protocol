@@ -1,29 +1,30 @@
 /**
  * b2e_master.c — master BUS-2EASY, rilevamento in TENSIONE
  *
- * Il master genera solo il reticolo degli slot. Gli slave abbassano la linea
- * da soli dentro la propria finestra: non serve rigenerare nulla e non serve
- * il canale di corrente.
+ * Il master genera il reticolo degli slot e alimenta la linea. Gli slave
+ * abbassano la tensione da soli dentro la propria finestra: non c'e' nulla da
+ * rigenerare e non serve misurare corrente.
  *
  * Struttura, a MEZZI SLOT da 150 us:
- *   mezzo slot PARI    -> il master emette l'impulso da 99 us (clock del bus)
- *   mezzo slot DISPARI -> il master NON emette. Se la linea scende comunque,
- *                         e' uno slave che risponde: bit = 1.
+ *   mezzo slot PARI    -> il master emette l'impulso (clock del bus)
+ *   mezzo slot DISPARI -> il master TACE. Se la linea scende comunque, e' uno
+ *                         slave che risponde: bit = 1.
+ *                         Eccezione: nei primi 8 slot (header) il master emette
+ *                         anche nel mezzo slot dispari.
  *
  * Uno slot = 300 us = due mezzi slot. Un frame = 64 slot + gap da 1.05 ms.
  *
- * Rilevamento: si campiona il livello di PC6 nella finestra centrale del
- * mezzo slot dispari, dove l'impulso di uno slave e' certamente presente e
- * il transitorio del proprio MOSFET si e' spento da un pezzo.
- *
  *   TIM1  periodo 150 us
- *     UPDATE (t=0)         -> mezzo slot pari: accende il MOSFET
- *                             mezzo slot dispari: azzera il flag di rilevamento
- *     CC1    (t=99 us)     -> spegne il MOSFET
- *     CC2    (t=sample)    -> campiona PC6; se basso -> risposta rilevata
+ *     UPDATE (t=0)        -> decide se emettere e, se si', accende il PNP
+ *     CC1    (t=PULSE_US) -> chiude l'impulso
+ *     CC2    (t=sample)   -> campiona il livello della linea
  *
- * PA9 pilota il gate di un MOSFET low-side: livello alto = bus a massa.
- * PC6 legge il bus tramite il partitore.
+ * PA9 pilota, tramite un MOSFET invertente, la base di un PNP high-side:
+ *   PA9 alto  -> PNP acceso  -> linea alta
+ *   PA9 basso -> PNP spento  -> linea rilasciata, scende
+ *
+ * PC6 legge la linea tramite partitore, A VALLE della resistenza serie del
+ * collettore: e' li' che il bus e' cedevole e gli slave possono abbassarlo.
  */
 
 #include "b2e_master.h"
@@ -37,7 +38,7 @@
 
 static TIM_HandleTypeDef htim_m;
 static b2em_state_t      st;
-static uint16_t          sample_us = 30;   /* meta' del mezzo slot */
+static uint16_t          sample_us = B2EM_SAMPLE_US_DEFAULT;
 
 typedef enum { PH_DATA, PH_GAP } phase_t;
 
@@ -50,8 +51,8 @@ static volatile uint16_t cur_half;
 
 /* ======================================================================= */
 
-static inline void bus_low(void)      { B2EM_TX_PORT->BSRR = B2EM_TX_PIN; }
-static inline void bus_release(void)  { B2EM_TX_PORT->BRR  = B2EM_TX_PIN; }
+static inline void bus_release(void)      { B2EM_TX_PORT->BSRR = B2EM_TX_PIN; }
+static inline void bus_low(void)  { B2EM_TX_PORT->BRR  = B2EM_TX_PIN; }
 
 static inline bool bus_is_low(void)
 {
@@ -73,7 +74,7 @@ void b2em_init(void)
     __HAL_RCC_GPIOC_CLK_ENABLE();
     __HAL_RCC_TIM1_CLK_ENABLE();
 
-    /* PA9: pull-down del bus */
+    /* PA9: comando del PNP high-side tramite MOSFET invertente */
     bus_release();
     gpio.Pin   = B2EM_TX_PIN;
     gpio.Mode  = GPIO_MODE_OUTPUT_PP;
@@ -211,7 +212,7 @@ void TIM1_UP_TIM16_IRQHandler(void)
 
     if (++half_idx >= (B2EM_SLOTS * 2u)) {
         phase    = PH_GAP;
-        gap_left = (B2EM_GAP_US + B2EM_HALF_US - 1u) / B2EM_HALF_US;
+        gap_left =  6u;
         st.mask  = rx_mask;
         rx_mask  = 0;
     }
@@ -287,7 +288,7 @@ static void b2em_census(uint64_t mask)
         if (missing[s] >= B2EM_MISSING_LIMIT) appello_fault = true;
     }
 
-    intruder_mask = mask & ~enrolled_mask & ~(uint64_t)0xFFu;
+    intruder_mask = mask & ~enrolled_mask & 0x00000000FFFFFF00ull;
 }
 
 /*
@@ -307,8 +308,10 @@ bool b2em_motion_allowed(uint64_t photo_mask)
     if ((m & photo_mask) != photo_mask) return false;
 
     /* logica invertita: bit 0 = STOP attivo */
-    if (!((m >> B2E_SLOT_STOP_NC_1) & 1u)) return false;
-    if (!((m >> B2E_SLOT_STOP_NC_2) & 1u)) return false;
+    if ((enrolled_mask >> B2E_SLOT_STOP_NC_1) & 1u)
+        if (!((m >> B2E_SLOT_STOP_NC_1) & 1u)) return false;
+    if ((enrolled_mask >> B2E_SLOT_STOP_NC_2) & 1u)
+        if (!((m >> B2E_SLOT_STOP_NC_2) & 1u)) return false;
 
     return true;
 }
@@ -325,7 +328,7 @@ void b2em_poll(void)
     }
 }
 
-/* Con il rilevamento in tensione non c'e' nulla da calibrare. */
+/* Reliquia dell'approccio a misura di corrente: non fa nulla. */
 void b2em_calibrate(void)
 {
     st.baseline  = 0;
