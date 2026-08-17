@@ -400,12 +400,12 @@ the milliwatt range.
           │                               │
    drain of Q2                        [ 100 kΩ ]
    (N-channel MOSFET,                     │
-    logic level)                          ├──────────── to MCU input (PC6)
+    logic level)                          ├──────────── MCU sense input
           │                            [ 15 kΩ ]
           │                               │
          GND ──────────────────────────────┴────────── BUS −
 
-   MCU PA9 ──[ 100 Ω ]── gate of Q2
+   MCU output ──[ 100 Ω ]── gate of Q2
    gate ──[ 10 kΩ ]── GND
 ```
 
@@ -449,7 +449,7 @@ device.
 
 ### Logic
 
-| PA9 | Q2 | Q1 base | Q1 | Line |
+| MCU output | Q2 | Q1 base | Q1 | Line |
 |---|---|---|---|---|
 | **high** | conducting | pulled down via R2 | **on** | **high** |
 | **low** | off | held at +24 by R1 | off | **released → falls** |
@@ -459,20 +459,33 @@ device.
 # Firmware
 
 STM32CubeIDE project for **STM32G474RCT6** at 170 MHz from an 8 MHz crystal. It contains
-both a passive sniffer and a full master, with a USB CDC console. No engine, motor or
-actuator code: all power outputs are forced to a safe state at start-up and never
-touched again.
+both a passive sniffer and a full master, with a USB CDC console. The master is
+configured at start-up but **stays stopped**: it drives the bus only after an explicit
+`M` command.
+
+> **This firmware targets a custom STM32G474 board.** Pin assignments, clock
+> configuration and the GPIO safe-state code in `main.c` are specific to that board and
+> **must be adapted** to whatever hardware you use. What is portable is the protocol
+> logic in `b2e.c` and `b2e_master.c`: the timing, the decoder, the census and the
+> consent rules. Anything that touches a pin, a timer instance or a DMA channel needs to
+> be reviewed against your own schematic.
+>
+> If you move the master output to a different pin, keep it on a timer that can generate
+> the update and two compare interrupts. If you move the sense input, it must be readable
+> as a plain GPIO level and, for the sniffer, sit on a timer input-capture channel.
 
 ### Peripherals
 
 | Resource | Use |
 |---|---|
-| PC6 | TIM3_CH1 input capture, falling edge — sniffer |
+| PC6 | TIM3_CH1 input capture, falling edge — sniffer, and level sense for the master |
 | TIM3 | 1 µs time base (PSC 169) |
 | DMA1_Ch3 | circular capture, 512 samples, no interrupts |
 | PA9 | master output, drives Q2 |
 | TIM1 | 150 µs half-slot, CC1 = pulse end, CC2 = sampling instant |
 | USB CDC | console |
+
+These are the pins of the reference board; change them to match yours.
 
 The master reads the line level through `PC6->IDR`, so both roles share one pin: the
 sniffer decodes the whole frame while the master samples its own reception window.
@@ -888,12 +901,12 @@ il livello basso il transistor si spegne e la linea scende da sola.
           │                               │
    drain di Q2                        [ 100 kΩ ]
    (MOSFET N logic-level)                 │
-          │                               ├──────────── ingresso MCU (PC6)
+          │                               ├──────────── ingresso MCU
           │                            [ 15 kΩ ]
           │                               │
          GND ──────────────────────────────┴────────── BUS −
 
-   MCU PA9 ──[ 100 Ω ]── gate di Q2
+   uscita MCU ──[ 100 Ω ]── gate di Q2
    gate ──[ 10 kΩ ]── GND
 ```
 
@@ -924,7 +937,7 @@ pochi nodi e cavo corto basta. Se il fronte di discesa è troppo lento, aggiungi
 resistenza permanente da BUS+ a massa: 2.2 kΩ dissipa 260 mW e non viene mai
 cortocircuitata, perché non esiste nessun low-side.
 
-| PA9 | Q2 | Base Q1 | Q1 | Linea |
+| Uscita MCU | Q2 | Base Q1 | Q1 | Linea |
 |---|---|---|---|---|
 | **alto** | conduce | tirata giù via R2 | **acceso** | **alta** |
 | **basso** | interdetto | tenuta a +24 da R1 | spento | **rilasciata → scende** |
@@ -934,17 +947,30 @@ cortocircuitata, perché non esiste nessun low-side.
 ## Firmware
 
 Progetto STM32CubeIDE per **STM32G474RCT6** a 170 MHz da quarzo 8 MHz. Contiene sniffer
-passivo e master completo, con console su USB CDC. Nessun codice motore: tutte le uscite
-di potenza sono forzate a riposo all'avvio e non più toccate.
+passivo e master completo, con console su USB CDC. Il master è configurato all'avvio ma
+**resta fermo**: pilota il bus solo dopo un comando `M` esplicito.
+
+> **Questo firmware gira su una scheda custom con STM32G474.** Assegnazione dei pin,
+> configurazione del clock e messa a riposo delle GPIO in `main.c` sono specifiche di
+> quella scheda e **vanno riadattate** all'hardware che si usa. Quello che è portabile è
+> la logica di protocollo in `b2e.c` e `b2e_master.c`: temporizzazione, decoder,
+> censimento e regole di consenso. Tutto ciò che tocca un pin, un'istanza di timer o un
+> canale DMA va verificato sul proprio schema.
+>
+> Se sposti l'uscita del master su un altro pin, tienila su un timer che possa generare
+> l'update e due interrupt di compare. Se sposti l'ingresso di lettura, deve essere
+> leggibile come livello GPIO e, per lo sniffer, stare su un canale di input capture.
 
 | Risorsa | Uso |
 |---|---|
-| PC6 | TIM3_CH1 input capture, fronte di discesa — sniffer |
+| PC6 | TIM3_CH1 input capture, fronte di discesa — sniffer e lettura livello per il master |
 | TIM3 | base tempi 1 µs (PSC 169) |
 | DMA1_Ch3 | cattura circolare, 512 campioni, nessun interrupt |
 | PA9 | uscita master, pilota Q2 |
 | TIM1 | mezzo slot 150 µs, CC1 = fine impulso, CC2 = istante di lettura |
 | USB CDC | console |
+
+Sono i pin della scheda di riferimento: vanno cambiati per adattarli alla propria.
 
 Il master legge il livello della linea da `PC6->IDR`, quindi i due ruoli condividono un
 pin: lo sniffer decodifica l'intero frame mentre il master campiona la propria finestra.
